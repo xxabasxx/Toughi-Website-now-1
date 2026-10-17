@@ -4,7 +4,7 @@ import { LISTINGS, type Listing } from "../data";
 import { faPrice } from "../fa";
 import { useReveal } from "../hooks/useReveal";
 
-type Props = { favs: Set<number>; toggleFav: (id: number) => void; onOpen: (l: Listing) => void };
+type Props = { favs: Set<string | number>; toggleFav: (id: string | number) => void; onOpen: (l: Listing) => void };
 
 export default function Featured({ favs, toggleFav, onOpen }: Props) {
   const ref = useReveal<HTMLElement>();

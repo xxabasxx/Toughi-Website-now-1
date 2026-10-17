@@ -24,7 +24,7 @@ import imgAquarium from "./assets/aquarium.webp";
 export type Category = { id: string; label: string; icon: LucideIcon; count: number };
 
 export type Listing = {
-  id: number;
+  id: string | number;
   title: string;
   img: string;
   images?: string[];

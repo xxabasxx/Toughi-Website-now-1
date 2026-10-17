@@ -7,8 +7,8 @@ type Props = {
   items: Listing[];
   activeCat: string;
   setActiveCat: (id: string) => void;
-  favs: Set<number>;
-  toggleFav: (id: number) => void;
+  favs: Set<string | number>;
+  toggleFav: (id: string | number) => void;
   onClear: () => void;
   onOpen: (l: Listing) => void;
 };

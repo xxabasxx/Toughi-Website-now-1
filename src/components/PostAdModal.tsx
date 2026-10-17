@@ -72,6 +72,7 @@ export default function PostAdModal({ open, onClose, onPublish, phone }: Props) 
   const [contact, setContact] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -147,37 +148,44 @@ export default function PostAdModal({ open, onClose, onPublish, phone }: Props) 
     setStep((s) => Math.min(2, s + 1));
   };
 
-  const publish = () => {
+  const publish = async () => {
     const finalContact = contact.replace(/\D/g, "") || (phone ?? "");
     if (!/^09\d{9}$/.test(finalContact)) {
       return setError("شماره تماس معتبر نیست؛ عدد را درست بنویس یا خالی رها کن تا همان شماره پنلت بشیند");
     }
-    setError("");
-    const clean = price.replace(/\D/g, "");
-    onPublish({
-      id: Date.now(),
-      title: title.trim(),
-      img: photos[0] ?? FALLBACK[cat] ?? imgKashani,
-      images: photos.length ? photos : undefined,
-      price: agreed ? null : Number(clean),
-      city,
-      province,
-      district: district.trim() || city,
-      time: "همین حالا",
-      cat,
-      badge: "جدید",
-      desc: desc.trim() || undefined,
-      seller: seller.trim() || "فروشنده طوقی",
-      phone: finalContact,
-      mine: true,
-      specs: {
-        breed: breed || undefined,
-        sex: sex || undefined,
-        age: age || undefined,
-        health: health.join("، ") || undefined,
-        delivery: delivery || undefined,
-      },
-    });
+    try {
+      setPending(true);
+      setError("");
+      const clean = price.replace(/\D/g, "");
+      await onPublish({
+        id: Date.now(),
+        title: title.trim(),
+        img: photos[0] ?? FALLBACK[cat] ?? imgKashani,
+        images: photos.length ? photos : undefined,
+        price: agreed ? null : Number(clean),
+        city,
+        province,
+        district: district.trim() || city,
+        time: "همین حالا",
+        cat,
+        badge: "جدید",
+        desc: desc.trim() || undefined,
+        seller: seller.trim() || "فروشنده طوقی",
+        phone: finalContact,
+        mine: true,
+        specs: {
+          breed: breed || undefined,
+          sex: sex || undefined,
+          age: age || undefined,
+          health: health.join("، ") || undefined,
+          delivery: delivery || undefined,
+        },
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "خطا در انتشار آگهی");
+    } finally {
+      setPending(false);
+    }
   };
 
   const inputCls =
@@ -517,9 +525,10 @@ export default function PostAdModal({ open, onClose, onPublish, phone }: Props) 
             )}
             <button
               onClick={step === 2 ? publish : next}
-              className="btn-shine flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[conic-gradient(from_210deg,#ffd97a,#f4a52e,#ee5c48,#f4a52e,#ffd97a)] py-3.5 text-sm font-extrabold text-deep shadow-[0_14px_34px_-8px_rgba(238,92,72,0.55)] transition hover:brightness-110"
+              disabled={pending}
+              className="btn-shine flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[conic-gradient(from_210deg,#ffd97a,#f4a52e,#ee5c48,#f4a52e,#ffd97a)] py-3.5 text-sm font-extrabold text-deep shadow-[0_14px_34px_-8px_rgba(238,92,72,0.55)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {step === 2 ? "انتشار آگهی" : "ادامه"}
+              {step === 2 ? (pending ? "در حال انتشار..." : "انتشار آگهی") : "ادامه"}
               {step < 2 && <ChevronLeft className="h-4 w-4" />}
             </button>
           </div>

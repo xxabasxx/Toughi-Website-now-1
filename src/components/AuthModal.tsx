@@ -10,11 +10,12 @@ import {
   X,
 } from "lucide-react";
 import { faDigits } from "../fa";
+import { sendOtp, verifyOtp, type SessionUser } from "../api";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onVerified: (phone: string) => void;
+  onVerified: (payload: { token: string; user: SessionUser }) => void;
   onDone: () => void;
   onLogout: () => void;
   authedPhone: string | null;
@@ -32,6 +33,8 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
   const [code, setCode] = useState<string[]>(["", "", "", "", ""]);
   const [error, setError] = useState("");
   const [seconds, setSeconds] = useState(90);
+  const [pending, setPending] = useState(false);
+  const [devCode, setDevCode] = useState<string | null>(null);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -41,6 +44,8 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
       setCode(["", "", "", "", ""]);
       setError("");
       setSeconds(90);
+      setPending(false);
+      setDevCode(null);
     }
   }, [open, authedPhone]);
 
@@ -54,31 +59,44 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
 
   const validPhone = /^09\d{9}$/.test(phone);
 
-  const submitPhone = () => {
+  const submitPhone = async () => {
     if (!validPhone) {
       setError("شماره موبایل معتبر نیست؛ مثال: ۰۹۱۲۳۴۵۶۷۸۹");
       return;
     }
-    setError("");
-    setStep("code");
-    setSeconds(90);
-    window.setTimeout(() => inputs.current[0]?.focus(), 80);
+    try {
+      setPending(true);
+      setError("");
+      const res = await sendOtp(phone);
+      setDevCode(res.devCode ?? null);
+      setStep("code");
+      setSeconds(90);
+      window.setTimeout(() => inputs.current[0]?.focus(), 80);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "خطا در ارسال کد");
+    } finally {
+      setPending(false);
+    }
   };
 
-  const verify = (joined?: string) => {
+  const verify = async (joined?: string) => {
     const j = joined ?? code.join("");
     if (j.length < 5) {
       setError("کد ۵ رقمی را کامل وارد کن");
       return;
     }
-    if (j === "12345") {
-      onVerified(phone);
+    try {
+      setPending(true);
+      const res = await verifyOtp(phone, j);
+      onVerified({ token: res.token, user: res.user });
       setError("");
       setStep("ok");
-    } else {
-      setError("کد واردشده صحیح نیست؛ دوباره تلاش کن");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "کد صحیح نیست");
       setCode(["", "", "", "", ""]);
       inputs.current[0]?.focus();
+    } finally {
+      setPending(false);
     }
   };
 
@@ -142,10 +160,10 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
 
             <button
               onClick={submitPhone}
-              disabled={phone.length < 11}
+              disabled={phone.length < 11 || pending}
               className="btn-shine mt-5 flex w-full items-center justify-center rounded-2xl bg-[conic-gradient(from_210deg,#ffd97a,#f4a52e,#ee5c48,#f4a52e,#ffd97a)] py-3.5 shadow-[0_14px_32px_-10px_rgba(238,92,72,0.6)] text-sm font-extrabold text-deep transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              دریافت کد تایید
+              {pending ? "در حال ارسال..." : "دریافت کد تایید"}
             </button>
             <p className="mt-4 text-center text-[10px] leading-5 text-mute">
               ورود یا ثبت‌نام، به معنای پذیرش <span className="font-bold text-gold">قوانین انتشار آگهی</span> و
@@ -161,12 +179,7 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
             </span>
             <h3 className="mt-5 text-center font-display text-2xl">کد تایید را وارد کن</h3>
             <p className="mt-2 text-center text-xs leading-6 text-mute">
-              کد ۵ رقمی برای{" "}
-              <span dir="ltr" className="font-extrabold text-cream">
-                {faDigits(phone)}
-              </span>{" "}
-              پیامک شد.{" "}
-              <button
+              کد ۵ رقمی برای <span dir="ltr" className="font-extrabold text-cream">{faDigits(phone)}</span> پیامک شد. <button
                 onClick={() => {
                   setStep("phone");
                   setCode(["", "", "", "", ""]);
@@ -202,21 +215,20 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
 
             {error ? (
               <p className="mt-3 text-center text-[11px] font-bold text-rose-400">{error}</p>
-            ) : (
+            ) : devCode ? (
               <p className="mt-3 text-center text-[10px] text-mute">
-                نسخه نمایشی — کد تایید: <span className="font-extrabold text-gold">۱۲۳۴۵</span>
+                حالت تست — کد تایید: <span className="font-extrabold text-gold">{faDigits(devCode)}</span>
               </p>
-            )}
+            ) : null}
 
             <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-mute">
               <Timer className="h-3.5 w-3.5" />
               {seconds > 0 ? (
                 <span>
-                  ارسال مجدد تا <span className="font-extrabold text-cream">{faDigits(seconds)}</span> ثانیه
-                  دیگر
+                  ارسال مجدد تا <span className="font-extrabold text-cream">{faDigits(seconds)}</span> ثانیه دیگر
                 </span>
               ) : (
-                <button onClick={() => setSeconds(90)} className="font-extrabold text-gold">
+                <button onClick={submitPhone} className="font-extrabold text-gold">
                   ارسال مجدد کد
                 </button>
               )}
@@ -224,9 +236,10 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
 
             <button
               onClick={() => verify()}
-              className="btn-shine mt-5 flex w-full items-center justify-center rounded-2xl bg-[conic-gradient(from_210deg,#ffd97a,#f4a52e,#ee5c48,#f4a52e,#ffd97a)] py-3.5 shadow-[0_14px_32px_-10px_rgba(238,92,72,0.6)] text-sm font-extrabold text-deep transition hover:brightness-110"
+              disabled={pending}
+              className="btn-shine mt-5 flex w-full items-center justify-center rounded-2xl bg-[conic-gradient(from_210deg,#ffd97a,#f4a52e,#ee5c48,#f4a52e,#ffd97a)] py-3.5 shadow-[0_14px_32px_-10px_rgba(238,92,72,0.6)] text-sm font-extrabold text-deep transition hover:brightness-110 disabled:opacity-40"
             >
-              تایید و ورود
+              {pending ? "در حال بررسی..." : "تایید و ورود"}
             </button>
           </div>
         )}
@@ -241,11 +254,7 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
             </span>
             <h3 className="mt-6 font-display text-2xl">احراز هویت انجام شد!</h3>
             <p className="mt-2 text-xs leading-7 text-mute">
-              به خانواده‌ی طوقی خوش آمدی؛ حساب تو با شماره‌ی{" "}
-              <span dir="ltr" className="font-extrabold text-cream">
-                {faDigits(phone)}
-              </span>{" "}
-              تایید شد.
+              به خانواده‌ی طوقی خوش آمدی؛ حساب تو با شماره‌ی <span dir="ltr" className="font-extrabold text-cream">{faDigits(phone)}</span> تایید شد.
             </p>
             <button
               onClick={onDone}
@@ -254,10 +263,7 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
               شروع ثبت آگهی
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <button
-              onClick={onClose}
-              className="mt-3 w-full rounded-2xl border border-line py-3 text-xs font-bold text-mute transition hover:text-cream"
-            >
+            <button onClick={onClose} className="mt-3 w-full rounded-2xl border border-line py-3 text-xs font-bold text-mute transition hover:text-cream">
               فعلاً نه
             </button>
           </div>
@@ -273,10 +279,7 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
             </span>
             <h3 className="mt-5 font-display text-2xl">حساب تو فعال است</h3>
             <p className="mt-1.5 text-[11px] text-mute">فروشنده تاییدشده‌ی طوقی</p>
-            <div
-              dir="ltr"
-              className="mx-auto mt-4 w-fit rounded-full border border-line bg-night px-5 py-2 text-sm font-extrabold tracking-widest"
-            >
+            <div dir="ltr" className="mx-auto mt-4 w-fit rounded-full border border-line bg-night px-5 py-2 text-sm font-extrabold tracking-widest">
               {faDigits(authedPhone)}
             </div>
             <button
@@ -292,10 +295,7 @@ export default function AuthModal({ open, onClose, onVerified, onDone, onLogout,
             >
               خروج از حساب
             </button>
-            <button
-              onClick={onClose}
-              className="mt-3 w-full py-1 text-[11px] font-bold text-mute transition hover:text-cream"
-            >
+            <button onClick={onClose} className="mt-3 w-full py-1 text-[11px] font-bold text-mute transition hover:text-cream">
               بستن
             </button>
           </div>

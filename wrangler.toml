@@ -1,0 +1,18 @@
+# طوقی — Cloudflare Pages + Functions config
+name = "tooghi-site"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-01-01"
+
+[vars]
+SANDBOX_MODE = "1"
+# SMS_TEMPLATE = "tooghi"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tooghi-db"
+database_id = "PUT-YOUR-D1-ID-HERE"
+
+# آپلود عکس‌ها (اختیاری ولی توصیه‌شده)
+# [[r2_buckets]]
+# binding = "R2"
+# bucket_name = "tooghi-media"
