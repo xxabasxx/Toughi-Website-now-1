@@ -1,0 +1,26 @@
+name = "tooghi-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+# حالت تست: کد تایید همیشه 12345 است و در پاسخ برمی‌گردد.
+# برای فعالیت واقعی SANDBOX_MODE را "0" کن و SMS_TOKEN کاوه‌نگار را بگذار.
+[vars]
+SANDBOX_MODE = "1"
+# SMS_TEMPLATE = "tooghi"
+
+# دیتابیس D1 — بعد از ساخت با دستور زیر، database_id را اینجا بگذار:
+#   npx wrangler d1 create tooghi-db
+[[d1_databases]]
+binding = "DB"
+database_name = "tooghi-db"
+database_id = "PUT-YOUR-D1-ID-HERE"
+
+# ذخیره عکس‌ها (اختیاری ولی توصیه‌شده) — باکت بساز:
+#   npx wrangler r2 bucket create tooghi-media
+# [[r2_buckets]]
+# binding = "R2"
+# bucket_name = "tooghi-media"
+
+# توکن کاوه‌نگار — بصورت secret (در کد ذخیره نشود):
+#   npx wrangler secret put SMS_TOKEN

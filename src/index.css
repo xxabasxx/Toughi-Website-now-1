@@ -199,7 +199,7 @@ input::placeholder {
   background: transparent;
 }
 [data-theme="light"] .bird-disc {
-  background: radial-gradient(circle, #3a4130 0%, #2b3222 60%, rgba(43, 50, 34, 0) 71%);
+  background: radial-gradient(circle, rgba(58,65,48,0.55) 0%, rgba(43,50,34,0.3) 50%, transparent 70%);
 }
 [data-theme="light"] .hero-bird {
   filter: drop-shadow(0 26px 44px rgba(60, 52, 25, 0.38));

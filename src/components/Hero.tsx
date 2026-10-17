@@ -92,16 +92,29 @@ export default function Hero({ query, setQuery, goAds, onSuggest }: Props) {
           </div>
         </div>
 
-        {/* visual — a simple photo, nothing else */}
-        <div className="reveal relative mx-auto w-full max-w-lg lg:max-w-none">
+        {/* visual — floating transparent fantail, NO background at all */}
+        <div className="reveal relative mx-auto flex w-full max-w-lg items-center justify-center self-stretch bg-transparent lg:max-w-none">
+          {/* glow behind bird */}
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(217,179,106,0.18),transparent_65%)] sm:h-[32rem] sm:w-[32rem]" />
+          {/* orbit rings */}
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/10 sm:h-[28rem] sm:w-[28rem]" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[17rem] w-[17rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/20 sm:h-[22rem] sm:w-[22rem]" />
+
+          {/* day-mode dark disc behind white bird */}
+          <div className="bird-disc pointer-events-none absolute left-1/2 top-1/2 h-[16rem] w-[16rem] -translate-x-1/2 -translate-y-1/2 rounded-full sm:h-[20rem] sm:w-[20rem]" />
+
+          {/* ground shadow */}
+          <div className="absolute bottom-6 left-1/2 h-6 w-52 -translate-x-1/2 rounded-full bg-black/30 blur-2xl sm:w-64" />
+
+          {/* THE BIRD */}
           <img
             src={imgFantail}
-            alt="کبوتر تزیینی فن‌تیل دم‌چتری"
-            className="aspect-square w-full rounded-[2rem] object-cover"
+            alt="کبوتر فن‌تیل دم‌چتری سفید — نماد طوقی"
+            className="hero-bird animate-float relative z-10 mx-auto w-full max-w-[20rem] object-contain drop-shadow-[0_24px_40px_rgba(217,179,106,0.25)] sm:max-w-[26rem] lg:max-w-[30rem]"
           />
 
           {/* floating listing card */}
-          <div className="absolute -bottom-5 start-5 flex items-center gap-3 rounded-2xl border border-line bg-ink/85 p-3 shadow-2xl backdrop-blur-md">
+          <div className="animate-float-slow absolute -start-4 top-64 z-20 flex items-center gap-3 rounded-2xl border border-line bg-ink/85 p-3 shadow-2xl shadow-black/30 backdrop-blur-md sm:-start-10">
             <img
               src={imgKashaniMini}
               alt="کبوتر کاشانی"
@@ -117,9 +130,9 @@ export default function Hero({ query, setQuery, goAds, onSuggest }: Props) {
           </div>
 
           {/* safety card */}
-          <div className="absolute -top-5 end-5 flex items-center gap-3 rounded-2xl border border-line bg-ink/85 p-3 shadow-2xl backdrop-blur-md">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gold/15 text-gold">
-              <ShieldCheck className="h-4.5 w-4.5" />
+          <div className="animate-float absolute -end-3 bottom-24 z-20 flex items-center gap-3 rounded-2xl border border-line bg-ink/85 p-3.5 shadow-2xl shadow-black/30 backdrop-blur-md sm:-end-8">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gold/15 text-gold">
+              <ShieldCheck className="h-5 w-5" />
             </span>
             <div>
               <p className="text-xs font-bold text-cream">معامله‌ی امن طوقی</p>
