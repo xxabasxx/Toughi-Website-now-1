@@ -10,7 +10,7 @@ SANDBOX_MODE = "1"
 [[d1_databases]]
 binding = "DB"
 database_name = "tooghi-db"
-database_id = "PUT-YOUR-D1-ID-HERE"
+database_id = "c98357e2-f004-4e32-a910-49062801795d"
 
 # آپلود عکس‌ها (اختیاری ولی توصیه‌شده)
 # [[r2_buckets]]
