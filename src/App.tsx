@@ -14,18 +14,9 @@ import BottomNav from "./components/BottomNav";
 import AuthModal from "./components/AuthModal";
 import PostAdModal from "./components/PostAdModal";
 import AdDetail from "./components/AdDetail";
-import ChatModal from "./components/ChatModal";
+import ChatModal, { type DemoThread } from "./components/ChatModal";
 import { LISTINGS, type Listing } from "./data";
-import {
-  createAd,
-  fetchAd,
-  fetchAds,
-  getMe,
-  listChats,
-  openChatApi,
-  type ChatSummary,
-  type SessionUser,
-} from "./api";
+import { createAd, fetchAd, fetchAds, getMe, listChats, openChatApi, type ChatSummary, type SessionUser } from "./api";
 
 type SessionState = { token: string; user: SessionUser } | null;
 
@@ -47,9 +38,26 @@ export default function App() {
   const [detail, setDetail] = useState<Listing | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
-  const [chats, setChats] = useState<ChatSummary[]>([]);
-  const [remoteAds, setRemoteAds] = useState<Listing[]>([]);
+  const [serverChats, setServerChats] = useState<ChatSummary[]>([]);
+  const [serverAds, setServerAds] = useState<Listing[]>([]);
+  const [demoAds, setDemoAds] = useState<Listing[]>(() => {
+    try {
+      const raw = localStorage.getItem("tooghi_demo_ads");
+      return raw ? (JSON.parse(raw) as Listing[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [demoThreads, setDemoThreads] = useState<DemoThread[]>(() => {
+    try {
+      const raw = localStorage.getItem("tooghi_demo_threads");
+      return raw ? (JSON.parse(raw) as DemoThread[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [adsLoading, setAdsLoading] = useState(false);
+  const [chatFallback, setChatFallback] = useState(false);
   const [session, setSession] = useState<SessionState>(() => {
     try {
       const raw = localStorage.getItem("tooghi_session");
@@ -71,6 +79,8 @@ export default function App() {
   const token = session?.token ?? null;
   const authedPhone = session?.user.phone ?? null;
   const authed = !!token;
+  const demoAuth = !!token?.startsWith("demo_");
+  const chatDemoMode = demoAuth || chatFallback;
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -78,22 +88,15 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(null), 2800);
   };
 
-  const goAds = () =>
-    document.getElementById("ads")?.scrollIntoView({ behavior: "smooth", block: "start" });
-
+  const goAds = () => document.getElementById("ads")?.scrollIntoView({ behavior: "smooth", block: "start" });
   const onSoon = () => showToast("این بخش به‌زودی فعال می‌شود — نسخه نمایشی");
-
-  const requestPost = () => {
-    if (authed) setPostOpen(true);
-    else setAuthOpen(true);
-  };
-
+  const requestPost = () => (authed ? setPostOpen(true) : setAuthOpen(true));
   const openAuth = () => setAuthOpen(true);
 
   const logout = () => {
     setSession(null);
     setAuthOpen(false);
-    setChats([]);
+    setServerChats([]);
     try {
       localStorage.removeItem("tooghi_session");
     } catch {
@@ -111,13 +114,14 @@ export default function App() {
     });
 
   const refreshChats = async () => {
-    if (!token) return;
+    if (!token || demoAuth) return;
     try {
       const res = await listChats(token);
-      setChats(res.items);
+      setServerChats(res.items);
+      setChatFallback(false);
       if (!activeChatId && res.items[0]) setActiveChatId(res.items[0].id);
     } catch {
-      /* silent */
+      setChatFallback(true);
     }
   };
 
@@ -128,74 +132,129 @@ export default function App() {
       showToast("برای گفتگو با فروشنده ابتدا وارد شو");
       return;
     }
-    try {
-      const res = await openChatApi(token, ad.id);
-      await refreshChats();
-      setActiveChatId(res.chatId);
-      setDetail(null);
-      setChatOpen(true);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "خطا در شروع گفتگو");
+
+    if (!demoAuth) {
+      try {
+        const res = await openChatApi(token, ad.id);
+        await refreshChats();
+        setActiveChatId(res.chatId);
+        setDetail(null);
+        setChatOpen(true);
+        return;
+      } catch {
+        setChatFallback(true);
+      }
     }
+
+    setDemoThreads((prev) => {
+      const found = prev.find((t) => String(t.adId) === String(ad.id));
+      if (found) {
+        setActiveChatId(found.id);
+        return prev;
+      }
+      const firstMsg = {
+        id: Date.now(),
+        fromMe: false,
+        body: `سلام 👋 درباره «${ad.title}» در خدمتم، بفرمایید.`,
+        at: Date.now(),
+      };
+      const created: DemoThread = {
+        id: Date.now(),
+        adId: ad.id,
+        peer: ad.seller ?? "فروشنده طوقی",
+        adTitle: ad.title,
+        adImage: ad.images?.[0] ?? ad.img,
+        unread: 0,
+        lastMsg: firstMsg.body,
+        lastAt: firstMsg.at,
+        messages: [firstMsg],
+      };
+      setActiveChatId(created.id);
+      return [created, ...prev];
+    });
+    setDetail(null);
+    setChatOpen(true);
   };
 
   const openAd = async (l: Listing) => {
-    if (typeof l.id === "string") {
+    if (typeof l.id === "string" && !String(l.id).startsWith("local_")) {
       try {
         const res = await fetchAd(l.id);
         setDetail(res.ad);
+        return;
       } catch {
-        setDetail(l);
+        /* fallback to card data */
       }
-    } else {
-      setDetail(l);
     }
+    setDetail(l);
   };
 
   const publish = async (draft: Listing) => {
     if (!token) throw new Error("برای ثبت آگهی باید وارد شوی");
-    const res = await createAd(token, {
-      title: draft.title,
-      cat: draft.cat,
-      city: draft.city,
-      province: draft.province,
-      district: draft.district,
-      price: draft.price ?? undefined,
-      agreed: draft.price == null,
-      seller: draft.seller,
-      phone: draft.phone,
-      description: draft.desc,
-      images: draft.images ?? (draft.img ? [draft.img] : []),
-      breed: draft.specs?.breed,
-      sex: draft.specs?.sex,
-      age: draft.specs?.age,
-      health: draft.specs?.health,
-      delivery: draft.specs?.delivery,
-    });
-    setRemoteAds((p) => [res.ad, ...p.filter((x) => x.id !== res.ad.id)]);
+
+    const fallbackAd: Listing = {
+      ...draft,
+      id: `local_${Date.now()}`,
+      time: "همین حالا",
+      badge: "جدید",
+      mine: true,
+      seller: draft.seller || "فروشنده طوقی",
+      phone: draft.phone || authedPhone || undefined,
+    };
+
+    if (!demoAuth) {
+      try {
+        const res = await createAd(token, {
+          title: draft.title,
+          cat: draft.cat,
+          city: draft.city,
+          province: draft.province,
+          district: draft.district,
+          price: draft.price ?? undefined,
+          agreed: draft.price == null,
+          seller: draft.seller,
+          phone: draft.phone,
+          description: draft.desc,
+          images: draft.images ?? (draft.img ? [draft.img] : []),
+          breed: draft.specs?.breed,
+          sex: draft.specs?.sex,
+          age: draft.specs?.age,
+          health: draft.specs?.health,
+          delivery: draft.specs?.delivery,
+        });
+        setServerAds((p) => [res.ad, ...p.filter((x) => String(x.id) !== String(res.ad.id))]);
+        setPostOpen(false);
+        setCat("all");
+        setCity("همه شهرها");
+        setQuery("");
+        showToast("آگهی‌ات با موفقیت منتشر شد!");
+        window.setTimeout(goAds, 250);
+        return;
+      } catch {
+        /* fallback to local demo */
+      }
+    }
+
+    setDemoAds((p) => [fallbackAd, ...p]);
     setPostOpen(false);
     setCat("all");
     setCity("همه شهرها");
     setQuery("");
-    showToast("آگهی‌ات با موفقیت منتشر شد!");
+    showToast("آگهی‌ات در حالت آزمایشی منتشر شد — روی همین سایت می‌بینی");
     window.setTimeout(goAds, 250);
   };
 
-  const filteredStatic = useMemo(
-    () =>
-      LISTINGS.filter(
-        (l) =>
-          (cat === "all" || l.cat === cat) &&
-          (city === "همه شهرها" || l.city === city) &&
-          (query.trim() === "" || l.title.includes(query.trim()))
-      ),
-    [cat, city, query]
-  );
+  const filterFn = (l: Listing) =>
+    (cat === "all" || l.cat === cat) &&
+    (city === "همه شهرها" || l.city === city) &&
+    (query.trim() === "" || l.title.includes(query.trim()));
+
+  const localVisible = useMemo(() => [...demoAds, ...LISTINGS].filter(filterFn), [demoAds, cat, city, query]);
 
   const mergedListings = useMemo(() => {
-    const ids = new Set(remoteAds.map((a) => String(a.id)));
-    return [...remoteAds, ...filteredStatic.filter((a) => !ids.has(String(a.id)))];
-  }, [remoteAds, filteredStatic]);
+    const ids = new Set(serverAds.map((a) => String(a.id)));
+    return [...serverAds, ...localVisible.filter((a) => !ids.has(String(a.id)))];
+  }, [serverAds, localVisible]);
 
   const clearFilters = () => {
     setCat("all");
@@ -229,6 +288,22 @@ export default function App() {
 
   useEffect(() => {
     try {
+      localStorage.setItem("tooghi_demo_ads", JSON.stringify(demoAds));
+    } catch {
+      /* ignore */
+    }
+  }, [demoAds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("tooghi_demo_threads", JSON.stringify(demoThreads));
+    } catch {
+      /* ignore */
+    }
+  }, [demoThreads]);
+
+  useEffect(() => {
+    try {
       if (session) localStorage.setItem("tooghi_session", JSON.stringify(session));
       else localStorage.removeItem("tooghi_session");
     } catch {
@@ -237,19 +312,19 @@ export default function App() {
   }, [session]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || demoAuth) return;
     let dead = false;
     getMe(token)
       .then((r) => {
         if (!dead) setSession((s) => (s ? { ...s, user: r.user } : s));
       })
       .catch(() => {
-        if (!dead) setSession(null);
+        if (!dead) setChatFallback(true);
       });
     return () => {
       dead = true;
     };
-  }, [token]);
+  }, [token, demoAuth]);
 
   useEffect(() => {
     let dead = false;
@@ -262,9 +337,9 @@ export default function App() {
           q: query.trim() || undefined,
           limit: 60,
         });
-        if (!dead) setRemoteAds(res.items);
+        if (!dead) setServerAds(res.items);
       } catch {
-        if (!dead) setRemoteAds([]);
+        if (!dead) setServerAds([]);
       } finally {
         if (!dead) setAdsLoading(false);
       }
@@ -276,11 +351,11 @@ export default function App() {
   }, [city, cat, query]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || demoAuth) return;
     void refreshChats();
     const i = window.setInterval(() => void refreshChats(), 9000);
     return () => window.clearInterval(i);
-  }, [token]);
+  }, [token, demoAuth]);
 
   useEffect(() => {
     const fn = () => {
@@ -319,15 +394,7 @@ export default function App() {
         <Categories active={cat} onSelect={(id) => { setCat(id); goAds(); }} />
         <Gallery onSelectCat={(id) => { setCat(id); goAds(); }} />
         <Featured favs={favs} toggleFav={toggleFav} onOpen={openAd} />
-        <Listings
-          items={mergedListings}
-          activeCat={cat}
-          setActiveCat={setCat}
-          favs={favs}
-          toggleFav={toggleFav}
-          onClear={clearFilters}
-          onOpen={openAd}
-        />
+        <Listings items={mergedListings} activeCat={cat} setActiveCat={setCat} favs={favs} toggleFav={toggleFav} onClear={clearFilters} onOpen={openAd} />
         {adsLoading && <p className="-mt-10 pb-10 text-center text-xs text-mute">در حال همگام‌سازی آگهی‌های جدید...</p>}
         <Trust />
         <CtaBanner onPost={requestPost} onSoon={onSoon} />
@@ -338,7 +405,7 @@ export default function App() {
 
       <BottomNav
         favCount={favs.size}
-        chatCount={chats.length}
+        chatCount={chatDemoMode ? demoThreads.length : serverChats.length}
         authed={authed}
         onHome={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         onChat={() => {
@@ -347,7 +414,10 @@ export default function App() {
             showToast("برای دیدن پیام‌ها وارد شو");
           } else {
             setChatOpen(true);
-            if (!activeChatId && chats[0]) setActiveChatId(chats[0].id);
+            if (!activeChatId) {
+              const first = chatDemoMode ? demoThreads[0]?.id : serverChats[0]?.id;
+              if (first) setActiveChatId(first);
+            }
           }
         }}
         onFavs={() => {
@@ -384,11 +454,14 @@ export default function App() {
       <ChatModal
         open={chatOpen}
         onClose={() => setChatOpen(false)}
-        threads={chats}
+        threads={serverChats}
         activeId={activeChatId}
         setActiveId={setActiveChatId}
         token={token}
         myName={authedPhone ? "شما" : "مهمان"}
+        demoMode={chatDemoMode}
+        demoThreads={demoThreads}
+        setDemoThreads={setDemoThreads}
       />
 
       <button
@@ -401,13 +474,9 @@ export default function App() {
 
       <div className={`fixed bottom-28 left-1/2 z-[80] -translate-x-1/2 transition-all duration-500 ${toast ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
         <div className="flex items-center gap-3 rounded-2xl border border-gold/30 bg-card/95 px-5 py-3.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gold/15 text-gold">
-            <Bird className="h-4 w-4" />
-          </span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gold/15 text-gold"><Bird className="h-4 w-4" /></span>
           <p className="whitespace-nowrap text-xs font-bold sm:text-sm">{toast}</p>
-          <button onClick={() => setToast(null)} aria-label="بستن پیام">
-            <X className="h-4 w-4 text-mute transition hover:text-cream" />
-          </button>
+          <button onClick={() => setToast(null)} aria-label="بستن پیام"><X className="h-4 w-4 text-mute transition hover:text-cream" /></button>
         </div>
       </div>
     </div>

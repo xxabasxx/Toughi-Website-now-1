@@ -2,6 +2,29 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, BadgeCheck, MessageCircle, Send, ShieldCheck, X } from "lucide-react";
 import { listMessages, sendMessageApi, type ChatMessage, type ChatSummary } from "../api";
 
+export type DemoThread = {
+  id: number;
+  adId: string | number;
+  peer: string;
+  adTitle: string;
+  adImage: string | null;
+  unread: number;
+  lastMsg: string | null;
+  lastAt: number | null;
+  messages: ChatMessage[];
+};
+
+const REPLIES = [
+  "سلام، بله موجوده. کِی می‌تونید تشریف بیارید؟",
+  "قیمت کمی قابل مذاکره هست برای خریدار واقعی.",
+  "حیوون کاملاً سالم و سرحاله، از نزدیک ببینید مطمئن می‌شید.",
+  "امکان ارسال به شهرستان هم هست، هزینه‌اش با خریداره.",
+  "عکس‌های بیشتری هم دارم، براتون بفرستم؟",
+];
+
+const fmt = (ms: number) =>
+  new Date(ms).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" });
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -10,10 +33,10 @@ type Props = {
   setActiveId: (id: number | null) => void;
   token: string | null;
   myName: string;
+  demoMode: boolean;
+  demoThreads: DemoThread[];
+  setDemoThreads: React.Dispatch<React.SetStateAction<DemoThread[]>>;
 };
-
-const fmt = (ms: number) =>
-  new Date(ms).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" });
 
 export default function ChatModal({
   open,
@@ -23,20 +46,35 @@ export default function ChatModal({
   setActiveId,
   token,
   myName,
+  demoMode,
+  demoThreads,
+  setDemoThreads,
 }: Props) {
   const [text, setText] = useState("");
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const active = useMemo(() => threads.find((t) => t.id === activeId) ?? null, [threads, activeId]);
+
+  const activeLive = useMemo(() => threads.find((t) => t.id === activeId) ?? null, [threads, activeId]);
+  const activeDemo = useMemo(() => demoThreads.find((t) => t.id === activeId) ?? null, [demoThreads, activeId]);
+  const active = demoMode ? activeDemo : activeLive;
+  const list = demoMode ? demoThreads : threads;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs.length, open]);
 
   useEffect(() => {
-    if (!open || !token || !activeId) return;
+    if (!open || !activeId) {
+      setMsgs([]);
+      return;
+    }
+    if (demoMode) {
+      setMsgs(activeDemo?.messages ?? []);
+      return;
+    }
+    if (!token) return;
     let alive = true;
     let last = 0;
     let timer: number | null = null;
@@ -48,11 +86,9 @@ export default function ChatModal({
         if (!alive) return;
         if (first) setMsgs(res.items);
         else if (res.items.length) setMsgs((p) => [...p, ...res.items]);
-        if ((first ? res.items : res.items).length) {
-          last = (first ? res.items : res.items).at(-1)?.at ?? last;
-        }
+        if (res.items.length) last = res.items.at(-1)?.at ?? last;
       } catch {
-        /* keep polling silent */
+        /* silent in polling */
       } finally {
         if (first) setLoading(false);
         if (alive) timer = window.setTimeout(() => void load(false), 2500);
@@ -64,16 +100,41 @@ export default function ChatModal({
       alive = false;
       if (timer) window.clearTimeout(timer);
     };
-  }, [open, token, activeId]);
+  }, [open, token, activeId, demoMode, activeDemo]);
 
   if (!open) return null;
 
   const send = async () => {
     const t = text.trim();
-    if (!t || !active || !token) return;
+    if (!t || !active) return;
+    setText("");
+
+    if (demoMode) {
+      const mine: ChatMessage = { id: Date.now(), fromMe: true, body: t, at: Date.now() };
+      setDemoThreads((prev) =>
+        prev.map((th) =>
+          th.id === active.id
+            ? { ...th, lastMsg: t, lastAt: mine.at, messages: [...th.messages, mine] }
+            : th
+        )
+      );
+      window.setTimeout(() => {
+        const reply = REPLIES[Math.floor(Math.random() * REPLIES.length)];
+        const msg: ChatMessage = { id: Date.now() + 1, fromMe: false, body: reply, at: Date.now() };
+        setDemoThreads((prev) =>
+          prev.map((th) =>
+            th.id === active.id
+              ? { ...th, unread: 0, lastMsg: reply, lastAt: msg.at, messages: [...th.messages, msg] }
+              : th
+          )
+        );
+      }, 1200);
+      return;
+    }
+
+    if (!token) return;
     const optimistic: ChatMessage = { id: Date.now(), fromMe: true, body: t, at: Date.now() };
     setMsgs((p) => [...p, optimistic]);
-    setText("");
     try {
       setSending(true);
       await sendMessageApi(token, active.id, t);
@@ -106,7 +167,7 @@ export default function ChatModal({
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-display text-lg">{active ? active.peer : "پیام‌های من"}</h3>
             <p className="truncate text-[10px] text-mute">
-              {active ? active.adTitle : `${threads.length ? "گفتگوهای فعال" : "هنوز گفتگویی نداری"}`}
+              {active ? active.adTitle : `${list.length ? "گفتگوهای فعال" : "هنوز گفتگویی نداری"}`}
             </p>
           </div>
           <button
@@ -120,14 +181,14 @@ export default function ChatModal({
 
         <div className="flex min-h-0 flex-1">
           <aside className={`no-scrollbar w-full shrink-0 overflow-y-auto border-e border-line bg-night/40 sm:block sm:w-64 ${active ? "hidden" : "block"}`}>
-            {threads.length === 0 && (
+            {list.length === 0 && (
               <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
                 <MessageCircle className="h-8 w-8 text-mute" />
                 <p className="text-xs font-bold">هنوز پیامی نداری</p>
                 <p className="text-[10px] leading-5 text-mute">از صفحه هر آگهی، دکمه «چت با فروشنده» را بزن</p>
               </div>
             )}
-            {threads.map((t) => (
+            {list.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setActiveId(t.id)}
