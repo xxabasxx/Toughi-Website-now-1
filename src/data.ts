@@ -10,16 +10,16 @@ import {
   ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
-import imgKashani from "./assets/pigeon-kashani.webp";
-import imgHeroPigeon from "./assets/hero-pigeon.webp";
-import imgArabianHero from "./assets/arabian-hero.webp";
-import imgRingneck from "./assets/parrot-ringneck.webp";
-import imgCockatiel from "./assets/cockatiel.webp";
-import imgLovebirds from "./assets/lovebirds.webp";
-import imgCanary from "./assets/canary.webp";
-import imgCatPersian from "./assets/cat-persian.webp";
-import imgDog from "./assets/dog-pomeranian.webp";
-import imgAquarium from "./assets/aquarium.webp";
+const imgKashani = "/img/pigeon-kashani.jpg";
+const imgHeroPigeon = "/img/hero-pigeon.jpg";
+const imgArabianHero = "/img/arabian-hero.jpg";
+const imgRingneck = "/img/parrot-ringneck.jpg";
+const imgCockatiel = "/img/cockatiel.jpg";
+const imgLovebirds = "/img/lovebirds.jpg";
+const imgCanary = "/img/canary.jpg";
+const imgCatPersian = "/img/cat-persian.jpg";
+const imgDog = "/img/dog-pomeranian.jpg";
+const imgAquarium = "/img/aquarium.jpg";
 
 export type Category = { id: string; label: string; icon: LucideIcon; count: number };
 

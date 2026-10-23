@@ -1,6 +1,6 @@
 import { Search, ShieldCheck, Sparkles } from "lucide-react";
-import imgFantail from "../assets/pigeon-fantail.webp";
-import imgKashaniMini from "../assets/pigeon-kashani.webp";
+const imgFantail = "/img/pigeon-fantail.png";
+const imgKashaniMini = "/img/pigeon-kashani.jpg";
 import { faNum, faPrice } from "../fa";
 import { SEARCH_SUGGEST } from "../data";
 import { useReveal } from "../hooks/useReveal";

@@ -10,13 +10,13 @@ import {
 } from "../data";
 import { PROVINCES, PROVINCE_NAMES } from "../iran";
 import { faDigits, faNum } from "../fa";
-import imgKashani from "../assets/pigeon-kashani.webp";
-import imgRingneck from "../assets/parrot-ringneck.webp";
-import imgCanary from "../assets/canary.webp";
-import imgCatPersian from "../assets/cat-persian.webp";
-import imgDog from "../assets/dog-pomeranian.webp";
-import imgAquarium from "../assets/aquarium.webp";
-import imgFantail from "../assets/pigeon-fantail.webp";
+const imgKashani = "/img/pigeon-kashani.jpg";
+const imgRingneck = "/img/parrot-ringneck.jpg";
+const imgCanary = "/img/canary.jpg";
+const imgCatPersian = "/img/cat-persian.jpg";
+const imgDog = "/img/dog-pomeranian.jpg";
+const imgAquarium = "/img/aquarium.jpg";
+const imgFantail = "/img/pigeon-fantail.png";
 
 const FALLBACK: Record<string, string> = {
   pigeon: imgKashani,
