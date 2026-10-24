@@ -16,6 +16,31 @@ export type ChatSummary = {
 };
 export type ChatMessage = { id: number; fromMe: boolean; body: string; at: number };
 
+/**
+ * حالت آفلاین/تست — وقتی API در دسترس نیست (دیپلوی استاتیک Pages)،
+ * قرارداد SANDBOX_MODE ورکر را سمت مرورگر شبیه‌سازی می‌کند تا
+ * ورود با کد ۱۲۳۴۵ و حالت دموی اپ (demo_ token) کار کند.
+ */
+function offline<T>(path: string, init?: RequestInit, token?: string): T | null {
+  if (path === "/api/auth/send") {
+    return { ok: true, message: "کد تأیید پیامک شد (حالت تست)", devCode: "12345" } as T;
+  }
+  if (path === "/api/auth/verify" && init?.body) {
+    try {
+      const body = JSON.parse(init.body as string);
+      if (String(body.code) === "12345") {
+        return { ok: true, token: `demo_${body.phone}`, user: { phone: body.phone } } as T;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (path === "/api/auth/me" && token?.startsWith("demo_")) {
+    return { ok: true, user: { phone: token.slice(5) } } as T;
+  }
+  return null;
+}
+
 async function req<T>(path: string, init?: RequestInit, token?: string): Promise<T> {
   const headers: Record<string, string> = {
     ...(token ? { authorization: `Bearer ${token}` } : {}),
@@ -23,12 +48,23 @@ async function req<T>(path: string, init?: RequestInit, token?: string): Promise
   };
   if (init?.body && !(init.body instanceof FormData)) headers["content-type"] = "application/json";
 
-  const res = await fetch(api(path), {
-    ...init,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(api(path), {
+      ...init,
+      headers,
+    });
+  } catch (e) {
+    const fb = offline<T>(path, init, token);
+    if (fb) return fb;
+    throw e;
+  }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data?.ok === false) throw new Error(data?.message || `HTTP ${res.status}`);
+  if (!res.ok || data?.ok === false) {
+    const fb = offline<T>(path, init, token);
+    if (fb) return fb;
+    throw new Error(data?.message || `HTTP ${res.status}`);
+  }
   return data as T;
 }
 

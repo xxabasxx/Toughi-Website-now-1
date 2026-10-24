@@ -1,18 +1,14 @@
-# طوقی — Cloudflare Pages + Functions config
-name = "tooghi-site"
+# طوقی — تنظیمات Cloudflare Pages (نسخهٔ اصلاح‌شده)
+#
+# این فایل عمداً مینیمال است:
+# - خروجی Vite در پوشهٔ dist ساخته می‌شود → همین‌جا اعلام شده
+# - هیچ bindingای (D1/R2/...) اینجا نیست تا اعتبارسنجی دیپلوی Git-متصل شکست نخورد؛
+#   اگر روزی دیتابیس لازم شد، از داشبورد Settings → Functions اضافه‌اش کن.
+#
+# تنظیمات پروژه در داشبورد Pages:
+#   Build command:       npm run build
+#   Output directory:    dist
+#   Environment variable: NODE_VERSION = 22
+
 pages_build_output_dir = "dist"
 compatibility_date = "2025-01-01"
-
-[vars]
-SANDBOX_MODE = "1"
-# SMS_TEMPLATE = "tooghi"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "tooghi-db"
-database_id = "c98357e2-f004-4e32-a910-49062801795d"
-
-# آپلود عکس‌ها (اختیاری ولی توصیه‌شده)
-# [[r2_buckets]]
-# binding = "R2"
-# bucket_name = "tooghi-media"
