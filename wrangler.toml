@@ -1,14 +1,7 @@
-# طوقی — تنظیمات Cloudflare Pages (نسخهٔ اصلاح‌شده)
-#
-# این فایل عمداً مینیمال است:
-# - خروجی Vite در پوشهٔ dist ساخته می‌شود → همین‌جا اعلام شده
-# - هیچ bindingای (D1/R2/...) اینجا نیست تا اعتبارسنجی دیپلوی Git-متصل شکست نخورد؛
-#   اگر روزی دیتابیس لازم شد، از داشبورد Settings → Functions اضافه‌اش کن.
-#
-# تنظیمات پروژه در داشبورد Pages:
-#   Build command:       npm run build
-#   Output directory:    dist
-#   Environment variable: NODE_VERSION = 22
-
-pages_build_output_dir = "dist"
+# طوقی — سایت استاتیک روی Cloudflare (Workers Static Assets)
+name = "tooghi-site"
 compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
